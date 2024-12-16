@@ -7,7 +7,7 @@ import time
 import numpy as np
 import re
 
-CASE = 2
+CASE = 1
 
 match CASE:
     case 0:
@@ -66,14 +66,18 @@ class PathHead:
             self.history = copy.deepcopy(history)
 
     def move(self, direction):
+        if direction != self.direction:
+            score = 1001
+        else:
+            score = 1
         if direction == Direction.UP:
-            return PathHead((self.position[0], self.position[1] - 1), direction, self.score + 1, self.history + [self.position])
+            return PathHead((self.position[0], self.position[1] - 1), direction, self.score + score, self.history + [self.position])
         elif direction == Direction.DOWN:
-            return PathHead((self.position[0], self.position[1] + 1), direction, self.score + 1, self.history + [self.position])
+            return PathHead((self.position[0], self.position[1] + 1), direction, self.score + score, self.history + [self.position])
         elif direction == Direction.LEFT:
-            return PathHead((self.position[0] - 1, self.position[1]), direction, self.score + 1, self.history + [self.position])
+            return PathHead((self.position[0] - 1, self.position[1]), direction, self.score + score, self.history + [self.position])
         elif direction == Direction.RIGHT:
-            return PathHead((self.position[0] + 1, self.position[1]), direction, self.score + 1, self.history + [self.position])
+            return PathHead((self.position[0] + 1, self.position[1]), direction, self.score + score, self.history + [self.position])
         else:
             raise Exception("Unknown direction")
     
@@ -82,16 +86,16 @@ class PathHead:
             return True
         return False
 
-    def rotate(self, clockwise=True):
-        match self.direction:
-            case Direction.UP:
-                return PathHead(self.position, rotate(self.direction, clockwise), self.score + 1000, self.history + [(self.position[0], self.position[1] + 1), (self.position[0], self.position[1] - 1)])
-            case Direction.DOWN:
-                return PathHead(self.position, rotate(self.direction, clockwise), self.score + 1000, self.history + [(self.position[0], self.position[1] + 1), (self.position[0], self.position[1] - 1)])
-            case Direction.LEFT:
-                return PathHead(self.position, rotate(self.direction, clockwise), self.score + 1000, self.history + [(self.position[0] + 1, self.position[1]), (self.position[0] - 1, self.position[1])])
-            case Direction.RIGHT:
-                return PathHead(self.position, rotate(self.direction, clockwise), self.score + 1000, self.history + [(self.position[0] + 1, self.position[1]), (self.position[0] - 1, self.position[1])])
+    # def rotate(self, clockwise=True):
+    #     match self.direction:
+    #         case Direction.UP:
+    #             return PathHead(self.position, rotate(self.direction, clockwise), self.score + 1000, self.history + [(self.position[0], self.position[1] + 1), (self.position[0], self.position[1] - 1)])
+    #         case Direction.DOWN:
+    #             return PathHead(self.position, rotate(self.direction, clockwise), self.score + 1000, self.history + [(self.position[0], self.position[1] + 1), (self.position[0], self.position[1] - 1)])
+    #         case Direction.LEFT:
+    #             return PathHead(self.position, rotate(self.direction, clockwise), self.score + 1000, self.history + [(self.position[0] + 1, self.position[1]), (self.position[0] - 1, self.position[1])])
+    #         case Direction.RIGHT:
+    #             return PathHead(self.position, rotate(self.direction, clockwise), self.score + 1000, self.history + [(self.position[0] + 1, self.position[1]), (self.position[0] - 1, self.position[1])])
     
     def __str__(self):
         return f"PathHead({self.position}, {self.direction}, {self.score})"
@@ -111,104 +115,128 @@ def dump_heads(grid, heads):
                 print(cell, end="")
         print("")
 
-def astar_solve_maze(grid, active_paths):
+def astar_solve_maze(grid, head):
     best_score = sys.maxsize
+    minima = {}
+    minima[head.position] = head.score
+    active_paths = [head]
+    winning_paths = []
+
     while active_paths:
-        dump_heads(grid, active_paths)
+        # dump_heads(grid, active_paths)
         print(f"Num active paths: {len(active_paths)}")
         new_active_paths = []
         for active_path in active_paths:
             match active_path.direction:
                 case Direction.UP:
                     if grid[active_path.position[1] - 1][active_path.position[0]] == "E":
-                        best_score = min(best_score, active_path.score + 1)
+                        if best_score == active_path.score + 1:
+                            winning_paths.append(active_path)
+                        elif active_path.score + 1 < best_score:
+                            best_score = active_path.score + 1
+                            winning_paths = [active_path]
                         continue                    
-                    if grid[active_path.position[1] - 1][active_path.position[0]] == ".":
-                        if active_path.score + 1 < best_score:
-                            new_position = (active_path.position[0], active_path.position[1] - 1)
-                            if not active_path.already_visited(new_position):
+                    next_position = (active_path.position[0], active_path.position[1] - 1)
+                    if grid[next_position[1]][next_position[0]] == ".":
+                        if active_path.score + 1 <= best_score:
+                            if not active_path.already_visited(next_position):
                                 new_active_paths.append(active_path.move(Direction.UP))
-                    if active_path.score + 1000 >= best_score:
+                    if active_path.score + 1001 > best_score:
                         continue
-                    if grid[active_path.position[1]][active_path.position[0] - 1] == ".":
-                        new_position = (active_path.position[0] - 1, active_path.position[1])
-                        if not active_path.already_visited(new_position):
-                            new_active_paths.append(active_path.rotate(clockwise=False))
-                    if grid[active_path.position[1]][active_path.position[0] + 1] == ".":
-                        new_position = (active_path.position[0] + 1, active_path.position[1])
-                        if not active_path.already_visited(new_position):
-                            new_active_paths.append(active_path.rotate(clockwise=True))
+                    next_position = (active_path.position[0] - 1, active_path.position[1])
+                    if grid[next_position[1]][next_position[0]] == ".":
+                        if not active_path.already_visited(next_position):
+                            new_active_paths.append(active_path.move(Direction.LEFT))
+                    next_position = (active_path.position[0] + 1, active_path.position[1])
+                    if grid[next_position[1]][next_position[0]] == ".":
+                        if not active_path.already_visited(next_position):
+                            new_active_paths.append(active_path.move(Direction.RIGHT))
+                
                 case Direction.DOWN:
                     if grid[active_path.position[1] + 1][active_path.position[0]] == "E":
-                        best_score = min(best_score, active_path.score + 1)
+                        if best_score == active_path.score + 1:
+                            winning_paths.append(active_path)
+                        elif active_path.score + 1 < best_score:
+                            best_score = active_path.score + 1
+                            winning_paths = [active_path]
                         continue                    
-                    if grid[active_path.position[1] + 1][active_path.position[0]] == ".":
-                        if active_path.score + 1 < best_score:
-                            new_position = (active_path.position[0], active_path.position[1] + 1)
-                            if not active_path.already_visited(new_position):
+                    next_position = (active_path.position[0], active_path.position[1] + 1)
+                    if grid[next_position[1]][next_position[0]] == ".":
+                        if active_path.score + 1 <= best_score:
+                            if not active_path.already_visited(next_position):
                                 new_active_paths.append(active_path.move(Direction.DOWN))
-                    if active_path.score + 1000 >= best_score:
+                    if active_path.score + 1001 > best_score:
                         continue
-                    if grid[active_path.position[1]][active_path.position[0] - 1] == ".":
-                        new_position = (active_path.position[0] - 1, active_path.position[1])
-                        if not active_path.already_visited(new_position):
-                            new_active_paths.append(active_path.rotate(clockwise=True))
-                    if grid[active_path.position[1]][active_path.position[0] + 1] == ".":
-                        new_position = (active_path.position[0] + 1, active_path.position[1])
-                        if not active_path.already_visited(new_position):
-                            new_active_paths.append(active_path.rotate(clockwise=False))
+                    next_position = (active_path.position[0] - 1, active_path.position[1])
+                    if grid[next_position[1]][next_position[0]] == ".":
+                        if not active_path.already_visited(next_position):
+                            new_active_paths.append(active_path.move(Direction.LEFT))
+                    next_position = (active_path.position[0] + 1, active_path.position[1])
+                    if grid[next_position[1]][next_position[0]] == ".":
+                        if not active_path.already_visited(next_position):
+                            new_active_paths.append(active_path.move(Direction.RIGHT))
+
                 case Direction.LEFT:
                     if grid[active_path.position[1]][active_path.position[0] - 1] == "E":
-                        best_score = min(best_score, active_path.score + 1)
+                        if best_score == active_path.score + 1:
+                            winning_paths.append(active_path)
+                        elif active_path.score + 1 < best_score:
+                            best_score = active_path.score + 1
+                            winning_paths = [active_path]
                         continue                    
-                    if grid[active_path.position[1]][active_path.position[0] - 1] == ".":
-                        if active_path.score + 1 < best_score:
-                            new_position = (active_path.position[0] - 1, active_path.position[1])
-                            if not active_path.already_visited(new_position):
+                    next_position = (active_path.position[0] - 1, active_path.position[1])
+                    if grid[next_position[1]][next_position[0]] == ".":
+                        if active_path.score + 1 <= best_score:
+                            if not active_path.already_visited(next_position):
                                 new_active_paths.append(active_path.move(Direction.LEFT))
-                    if active_path.score + 1000 >= best_score:
+                    if active_path.score + 1001 > best_score:
                         continue
-                    if grid[active_path.position[1] - 1][active_path.position[0]] == ".":
-                        new_position = (active_path.position[0], active_path.position[1] - 1)
-                        if not active_path.already_visited(new_position):
-                            new_active_paths.append(active_path.rotate(clockwise=True))
-                    if grid[active_path.position[1] + 1][active_path.position[0]] == ".":
-                        new_position = (active_path.position[0], active_path.position[1] + 1)
-                        if not active_path.already_visited(new_position):
-                            new_active_paths.append(active_path.rotate(clockwise=False))
+                    next_position = (active_path.position[0], active_path.position[1] - 1)
+                    if grid[next_position[1]][next_position[0]] == ".":
+                        if not active_path.already_visited(next_position):
+                            new_active_paths.append(active_path.move(Direction.UP))
+                    next_position = (active_path.position[0], active_path.position[1] + 1)
+                    if grid[next_position[1]][next_position[0]] == ".":
+                        if not active_path.already_visited(next_position):
+                            new_active_paths.append(active_path.move(Direction.DOWN))
+
                 case Direction.RIGHT:
                     if grid[active_path.position[1]][active_path.position[0] + 1] == "E":
-                        best_score = min(best_score, active_path.score + 1)
+                        if best_score == active_path.score + 1:
+                            winning_paths.append(active_path)
+                        elif active_path.score + 1 < best_score:
+                            best_score = active_path.score + 1
+                            winning_paths = [active_path]
                         continue                    
-                    if grid[active_path.position[1]][active_path.position[0] + 1] == ".":
-                        if active_path.score + 1 < best_score:
-                            new_position = (active_path.position[0] + 1, active_path.position[1])
-                            if not active_path.already_visited(new_position):
+                    next_position = (active_path.position[0] + 1, active_path.position[1])
+                    if grid[next_position[1]][next_position[0]] == ".":
+                        if active_path.score + 1 <= best_score:
+                            if not active_path.already_visited(next_position):
                                 new_active_paths.append(active_path.move(Direction.RIGHT))
-                    if active_path.score + 1000 >= best_score:
+                    if active_path.score + 1001 > best_score:
                         continue
-                    if grid[active_path.position[1] - 1][active_path.position[0]] == ".":
-                        new_position = (active_path.position[0], active_path.position[1] - 1)
-                        if not active_path.already_visited(new_position):
-                            new_active_paths.append(active_path.rotate(clockwise=False))
-                    if grid[active_path.position[1] + 1][active_path.position[0]] == ".":
-                        new_position = (active_path.position[0], active_path.position[1] + 1)
-                        if not active_path.already_visited(new_position):
-                            new_active_paths.append(active_path.rotate(clockwise=True))
-        minima = {}
+                    next_position = (active_path.position[0], active_path.position[1] - 1)
+                    if grid[next_position[1]][next_position[0]] == ".":
+                        if not active_path.already_visited(next_position):
+                            new_active_paths.append(active_path.move(Direction.UP))
+                    next_position = (active_path.position[0], active_path.position[1] + 1)
+                    if grid[next_position[1]][next_position[0]] == ".":
+                        if not active_path.already_visited(next_position):
+                            new_active_paths.append(active_path.move(Direction.DOWN))
+
+        active_paths = []                    
         for path in new_active_paths:
             if path.position in minima:
-                if path.score < minima[path.position].score:
-                    minima[path.position] = path
+                if path.score < minima[path.position]:
+                    minima[path.position] = path.score
+                    active_paths.append(path)
             else:
-                minima[path.position] = path
-        new_active_paths = list(minima.values())
-        active_paths = new_active_paths
+                minima[path.position] = path.score    
+                active_paths.append(path)
+
     return best_score
 
 s_position = (1, len(grid) - 2)
 assert(grid[s_position[1]][s_position[0]] == "S")
-active_paths = [PathHead(s_position, Direction.RIGHT, 0)]
-
-score = astar_solve_maze(grid, active_paths)
+score = astar_solve_maze(grid, PathHead(s_position, Direction.RIGHT, 0))
 print(score)
