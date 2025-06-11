@@ -100,7 +100,7 @@ number_t match_diff(std::vector<number_t> initial_secret_numbers, std::vector<di
             if (std::equal(current_diff.begin(), current_diff.end(), diff_deque.begin())) {
                 total_bananas += number % 10;
                 break;
-            }
+            },
             diff_deque.pop_front();
         }
     }
